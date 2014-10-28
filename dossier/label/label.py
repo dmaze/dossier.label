@@ -183,6 +183,7 @@ class Label(namedtuple('_Label', 'content_id1 content_id2 subtopic_id1 ' +
 
 class LabelStore(object):
     '''A label database.'''
+    config_name = 'dossier.label'
     TABLE = 'label'
 
     _kvlayer_namespace = {
