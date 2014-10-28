@@ -54,7 +54,14 @@ class CorefValue(enum.Enum):
 class Label(namedtuple('_Label', 'content_id1 content_id2 subtopic_id1 ' +
                                  'subtopic_id2 annotator_id epoch_ticks '+
                                  'value')):
-    '''A label is an immutable unit of ground truth data.'''
+    '''A label is an immutable unit of ground truth data.
+
+    .. automethod:: __new__
+    .. automethod:: reversed
+    .. automethod:: __lt__
+    .. automethod:: __eq__
+    .. automethod:: __hash__
+    '''
 
     def __new__(cls, content_id1, content_id2, annotator_id, value,
                 subtopic_id1=None, subtopic_id2=None, epoch_ticks=None):
@@ -98,14 +105,15 @@ class Label(namedtuple('_Label', 'content_id1 content_id2 subtopic_id1 ' +
 
     @staticmethod
     def _from_kvlayer(row):
-        '''Create a new :cls:`Label` from a kvlayer result.
+        '''Create a new :class:`Label` from a kvlayer result.
 
         The ``row`` should be a tuple of ``(key, value)``
         where ``key`` corresponds to the namespace defined at
         :attr:`LabelStore._kvlayer_namespace`.
 
+        :param row: kvlayer result
         :type row: ``(key, value)``
-        :rtype: :cls:`Label`
+        :rtype: :class:`Label`
         '''
         key, value = row
         cid1, cid2, subid1, subid2, ann, ticks = key
@@ -182,7 +190,16 @@ class Label(namedtuple('_Label', 'content_id1 content_id2 subtopic_id1 ' +
 
 
 class LabelStore(object):
-    '''A label database.'''
+    '''A label database.
+
+    .. automethod:: __init__
+    .. automethod:: put
+    .. automethod:: get
+    .. automethod:: get_all_for_content_id
+    .. automethod:: connected_component
+    .. automethod:: everything
+    .. automethod:: delete_all
+    '''
     config_name = 'dossier.label'
     TABLE = 'label'
 
@@ -199,8 +216,9 @@ class LabelStore(object):
     def __init__(self, kvlclient):
         '''Create a new label store.
 
-        :type kvlclient: :cls:`kvlayer._abstract_storage.AbstractStorage`
-        :rtype: :cls:`LabelStore`
+        :param kvlclient: kvlayer client
+        :type kvlclient: :class:`kvlayer._abstract_storage.AbstractStorage`
+        :rtype: :class:`LabelStore`
         '''
         self.kvl = kvlclient
         self.kvl.setup_namespace(self._kvlayer_namespace)
@@ -208,7 +226,8 @@ class LabelStore(object):
     def put(self, label):
         '''Add a new label to the store.
 
-        :type label: :cls:`Label`
+        :param label: label
+        :type label: :class:`Label`
         '''
         logger.info('adding label "%r"', label)
         self.kvl.put(self.TABLE,
@@ -223,7 +242,12 @@ class LabelStore(object):
         Note that the combination of content ids, subtopic ids and
         an annotator id *uniquely* identifies a label.
 
-        :rtype: :cls:`Label`
+        :param str cid1: content id
+        :param str cid2: content id
+        :param str annotator_id: annotator id
+        :param str subid1: subtopic id
+        :param str subid2: subtopic id
+        :rtype: :class:`Label`
         :raises: :exc:`KeyError` if no label could be found.
         '''
         s = (cid1, cid2, subid1, subid2, annotator_id, long(-sys.maxint - 1))
@@ -246,7 +270,8 @@ class LabelStore(object):
         Note that this only returns *directly* connected labels. It
         will not follow transitive relationships.
 
-        :rtype: generator of :cls:`Label`
+        :param str content_id: content id
+        :rtype: generator of :class:`Label`
         '''
         s = (content_id,)
         e = (content_id + '\xff',)
@@ -266,6 +291,11 @@ class LabelStore(object):
 
         The ``value`` indicates which labels to include in the
         connected component.
+
+        :param str content_id: content id
+        :param value: coreferent value
+        :type value: :class:`CorefValue`
+        :rtype: ``list`` of :class:`Label`
         '''
         if isinstance(value, int):
             value = CorefValue(value)
@@ -291,7 +321,7 @@ class LabelStore(object):
         If ``include_deleted`` is ``True``, labels that have been
         deleted are also included.
 
-        :rtype: generator of :cls:`Label`
+        :rtype: generator of :class:`Label`
         '''
         results = imap(Label._from_kvlayer, self.kvl.scan(self.TABLE))
         return results if include_deleted else latest_labels(results)

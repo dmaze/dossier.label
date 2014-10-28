@@ -56,6 +56,7 @@ configuration setup.
 
 .. autoclass:: LabelStore
 .. autoclass:: Label
+.. autoclass:: CorefValue
 '''
 from __future__ import absolute_import, division, print_function
 
