@@ -38,9 +38,10 @@ setup(
         'License :: OSI Approved :: MIT License',
     ],
     install_requires=[
+        'enum34',
         'kvlayer',
         'pytest',
-        'pytest-diffeo >= 0.1.4',
+        'pytest-quickcheck',
         'yakonfig >= 0.7.2',
     ],
     include_package_data=True,
