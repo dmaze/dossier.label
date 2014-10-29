@@ -5,10 +5,16 @@
 '''
 from __future__ import absolute_import, division, print_function
 
+from pyquchk.arbitraries import int_, str_letters
 import pytest
 
 import kvlayer
 import yakonfig
+
+
+# Generators of random values.
+coref_value = int_(low=-1, high=1, uniform=True)
+id_ = str_letters
 
 
 @pytest.yield_fixture
