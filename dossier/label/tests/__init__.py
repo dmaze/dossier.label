@@ -10,6 +10,7 @@ import pytest
 import kvlayer
 import yakonfig
 
+
 @pytest.yield_fixture
 def kvl():
     config = {
