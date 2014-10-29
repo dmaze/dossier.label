@@ -41,7 +41,7 @@ setup(
         'enum34',
         'kvlayer',
         'pytest',
-        'pytest-quickcheck',
+        # 'pytest-quickcheck', 
         'yakonfig >= 0.7.2',
     ],
     include_package_data=True,

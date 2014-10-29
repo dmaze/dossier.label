@@ -18,78 +18,78 @@ def label_store(kvl):
     lstore.delete_all()
 
 
-@pytest.mark.randomize(cid1=str, cid2=str, ann=str, v=int,
-                       min_num=-1, max_num=1)
-def test_put_get(label_store, cid1, cid2, ann, v):
-    lab = Label(cid1, cid2, ann, v)
-    label_store.put(lab)
-    got = label_store.get(cid1, cid2, ann)
-    assert lab == got and lab.value == got.value
-
-
-@pytest.mark.randomize(cid1=str, cid2=str, ann=str, v=int,
-                       min_num=-1, max_num=1)
-def test_put_get_unordered(label_store, cid1, cid2, ann, v):
-    lab = Label(cid1, cid2, ann, v)
-    label_store.put(lab)
-    got = label_store.get(cid2, cid1, ann)
-    assert lab == got and lab.value == got.value
-
-
-@pytest.mark.randomize(cid1=str, cid2=str, ann=str, v1=int, v2=int,
-                       min_num=-1, max_num=1)
-def test_put_get_recent(label_store, cid1, cid2, ann, v1, v2):
-    lab1 = Label(cid1, cid2, ann, v1)
-    lab2 = Label(cid1, cid2, ann, v2, epoch_ticks=lab1.epoch_ticks + 1)
-    label_store.put(lab1)
-    label_store.put(lab2)
-    got = label_store.get(cid1, cid2, ann)
-    assert lab1 == got and lab2 == got and lab2.value == got.value
-
-
-@pytest.mark.randomize(cid1=str, cid2=str, ann=str, v1=int, v2=int,
-                       min_num=-1, max_num=1)
-def test_put_get_recent_unordered(label_store, cid1, cid2, ann, v1, v2):
-    lab1 = Label(cid1, cid2, ann, v1)
-    lab2 = Label(cid2, cid1, ann, v2, epoch_ticks=lab1.epoch_ticks + 1)
-    label_store.put(lab1)
-    label_store.put(lab2)
-    got = label_store.get(cid1, cid2, ann)
-    assert lab1 == got and lab2 == got and lab2.value == got.value
-
-
-@pytest.mark.randomize(cid1=str, cid2=str, ann=str, v1=int, v2=int,
-                       min_num=-1, max_num=1)
-def test_direct_connect_recent(label_store, cid1, cid2, ann, v1, v2):
-    lab1 = Label(cid1, cid2, ann, v1)
-    lab2 = Label(cid1, cid2, ann, v2, epoch_ticks=lab1.epoch_ticks + 1)
-    label_store.put(lab1)
-    label_store.put(lab2)
-
-    direct = list(label_store.get_all_for_content_id(cid1))
-    assert direct == [lab2] and direct == [lab1]
-    assert direct[0].value == lab2.value
-
-    direct = list(label_store.get_all_for_content_id(cid2))
-    assert direct == [lab2] and direct == [lab1]
-    assert direct[0].value == lab2.value
-
-
-@pytest.mark.randomize(cid1=str, cid2=str, ann=str, v1=int, v2=int,
-                       min_num=-1, max_num=1)
-def test_direct_connect_recent_unordered(label_store, cid1, cid2, ann, v1, v2):
-    lab1 = Label(cid1, cid2, ann, v1)
-    lab2 = Label(cid2, cid1, ann, v2, epoch_ticks=lab1.epoch_ticks + 1)
-    label_store.put(lab1)
-    label_store.put(lab2)
-
-    direct = list(label_store.get_all_for_content_id(cid1))
-    assert direct == [lab2] and direct == [lab1]
-    assert direct[0].value == lab2.value
-
-    direct = list(label_store.get_all_for_content_id(cid2))
-    assert direct == [lab2] and direct == [lab1]
-    assert direct[0].value == lab2.value
+# @pytest.mark.randomize(cid1=str, cid2=str, ann=str, v=int, 
+                       # min_num=-1, max_num=1) 
+# def test_put_get(label_store, cid1, cid2, ann, v): 
+    # lab = Label(cid1, cid2, ann, v) 
+    # label_store.put(lab) 
+    # got = label_store.get(cid1, cid2, ann) 
+    # assert lab == got and lab.value == got.value 
+#  
+#  
+# @pytest.mark.randomize(cid1=str, cid2=str, ann=str, v=int, 
+                       # min_num=-1, max_num=1) 
+# def test_put_get_unordered(label_store, cid1, cid2, ann, v): 
+    # lab = Label(cid1, cid2, ann, v) 
+    # label_store.put(lab) 
+    # got = label_store.get(cid2, cid1, ann) 
+    # assert lab == got and lab.value == got.value 
+#  
+#  
+# @pytest.mark.randomize(cid1=str, cid2=str, ann=str, v1=int, v2=int, 
+                       # min_num=-1, max_num=1) 
+# def test_put_get_recent(label_store, cid1, cid2, ann, v1, v2): 
+    # lab1 = Label(cid1, cid2, ann, v1) 
+    # lab2 = Label(cid1, cid2, ann, v2, epoch_ticks=lab1.epoch_ticks + 1) 
+    # label_store.put(lab1) 
+    # label_store.put(lab2) 
+    # got = label_store.get(cid1, cid2, ann) 
+    # assert lab1 == got and lab2 == got and lab2.value == got.value 
+#  
+#  
+# @pytest.mark.randomize(cid1=str, cid2=str, ann=str, v1=int, v2=int, 
+                       # min_num=-1, max_num=1) 
+# def test_put_get_recent_unordered(label_store, cid1, cid2, ann, v1, v2): 
+    # lab1 = Label(cid1, cid2, ann, v1) 
+    # lab2 = Label(cid2, cid1, ann, v2, epoch_ticks=lab1.epoch_ticks + 1) 
+    # label_store.put(lab1) 
+    # label_store.put(lab2) 
+    # got = label_store.get(cid1, cid2, ann) 
+    # assert lab1 == got and lab2 == got and lab2.value == got.value 
+#  
+#  
+# @pytest.mark.randomize(cid1=str, cid2=str, ann=str, v1=int, v2=int, 
+                       # min_num=-1, max_num=1) 
+# def test_direct_connect_recent(label_store, cid1, cid2, ann, v1, v2): 
+    # lab1 = Label(cid1, cid2, ann, v1) 
+    # lab2 = Label(cid1, cid2, ann, v2, epoch_ticks=lab1.epoch_ticks + 1) 
+    # label_store.put(lab1) 
+    # label_store.put(lab2) 
+#  
+    # direct = list(label_store.get_all_for_content_id(cid1)) 
+    # assert direct == [lab2] and direct == [lab1] 
+    # assert direct[0].value == lab2.value 
+#  
+    # direct = list(label_store.get_all_for_content_id(cid2)) 
+    # assert direct == [lab2] and direct == [lab1] 
+    # assert direct[0].value == lab2.value 
+#  
+#  
+# @pytest.mark.randomize(cid1=str, cid2=str, ann=str, v1=int, v2=int, 
+                       # min_num=-1, max_num=1) 
+# def test_direct_connect_recent_unordered(label_store, cid1, cid2, ann, v1, v2): 
+    # lab1 = Label(cid1, cid2, ann, v1) 
+    # lab2 = Label(cid2, cid1, ann, v2, epoch_ticks=lab1.epoch_ticks + 1) 
+    # label_store.put(lab1) 
+    # label_store.put(lab2) 
+#  
+    # direct = list(label_store.get_all_for_content_id(cid1)) 
+    # assert direct == [lab2] and direct == [lab1] 
+    # assert direct[0].value == lab2.value 
+#  
+    # direct = list(label_store.get_all_for_content_id(cid2)) 
+    # assert direct == [lab2] and direct == [lab1] 
+    # assert direct[0].value == lab2.value 
 
 
 def test_direct_connect(label_store):
