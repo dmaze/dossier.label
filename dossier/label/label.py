@@ -58,9 +58,11 @@ class Label(namedtuple('_Label', 'content_id1 content_id2 subtopic_id1 ' +
 
     .. automethod:: __new__
     .. automethod:: reversed
+    .. automethod:: other
     .. automethod:: __lt__
     .. automethod:: __eq__
     .. automethod:: __hash__
+    .. automethod:: __contains__
     '''
 
     def __new__(cls, content_id1, content_id2, annotator_id, value,
@@ -90,6 +92,21 @@ class Label(namedtuple('_Label', 'content_id1 content_id2 subtopic_id1 ' +
         return self._replace(
             content_id1=self.content_id2, content_id2=self.content_id1,
             subtopic_id1=self.subtopic_id2, subtopic_id2=self.subtopic_id1)
+
+    def __contains__(self, content_id):
+        '''Returns ``True`` if ``content_id`` is in this label.'''
+        return content_id in (self.content_id2, self.content_id2)
+
+    def other(self, content_id):
+        '''Returns the other content id.
+
+        If ``content_id == self.content_id1``, then return
+        ``self.content_id2`` (and vice versa).
+        '''
+        if content_id == self.content_id1:
+            return self.content_id2
+        else:
+            return self.content_id1
 
     def _to_kvlayer(self):
         '''Converts this label to a kvlayer tuple.
