@@ -8,8 +8,9 @@ from __future__ import absolute_import, division, print_function
 from collections import namedtuple
 from datetime import datetime
 import functools
-from itertools import groupby, imap
+from itertools import groupby, imap, combinations
 import logging
+from operator import attrgetter
 import sys
 import time
 
@@ -332,6 +333,29 @@ class LabelStore(object):
                 labels.add(label)
         return list(labels)
 
+    def expand(self, content_id, value):
+        '''Return expanded set of labels from ``content_id``'s connected component.
+
+        The :class:`Label`s returned by ``connected_component``
+        contains only the :class:`Label`s stored in the
+        :class:`LabelStore`, and does not include the :class:`Label`s
+        you can infer from the connected component. This method
+        returns both the data-backed :class:`Label`s and the inferred
+        :class:`Label`s
+
+        Subtopic assignments of the expanded labels will be empty. The
+        annotator_id will be an arbitrary annotator_id within the
+        connected component.
+
+        :param str content_id: content id
+        :param value: coreferent value
+        :type value: :class:`CorefValue`
+        :rtype: ``list`` of :class:`Label`
+        '''
+
+        connected_component = self.connected_component(content_id, value)
+        return expand(connected_component)
+
     def everything(self, include_deleted=False):
         '''Returns a generator of all labels in the store.
 
@@ -377,6 +401,48 @@ def latest_labels(label_iterable):
         for lab in group:
             yield lab
             break
+
+
+def expand(labels):
+    '''Expand a set of labels that define a connected component.
+
+    ``labels`` must define a connected component: it is all of the
+    edges that make up the *single* connected component in the
+    :class:`LabelStore`.  expand will ignore subtopic assignments, and
+    annotator_id will be an arbitrary one selected from
+    ``labels``. The expanded labels reside entirely within memory.
+
+    :param labels: ``list`` of :class:`Label` for the connected component.
+    :rtype: ``list`` of :class:`Label`
+    '''
+
+    # Anything to expand?
+    if len(labels) == 0:
+        return []
+
+    annotators = map(attrgetter('annotator_id'), labels)
+    annotator = annotators[0]
+
+    data_backed_pairs = set()
+    connected_component = set()
+    for label in labels:
+        data_backed_pairs.add((label.content_id1, label.content_id2))
+        connected_component.add(label.content_id1)
+        connected_component.add(label.content_id2)
+
+    connected_component = sorted(connected_component)
+
+    # We do not want to rebuild the Labels we already have,
+    # because they have true annotator_id and subtopic
+    # fields that we may want to preserve.
+    mem_backed_labels = []
+    for cid1, cid2 in combinations(connected_component, 2):
+        if (cid1, cid2) not in data_backed_pairs and \
+           (cid2, cid1) not in data_backed_pairs:
+            l = Label(cid1, cid2, annotator, CorefValue(1))
+            mem_backed_labels.append(l)
+
+    return labels + mem_backed_labels
 
 
 def time_complement(t):

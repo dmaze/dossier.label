@@ -233,3 +233,42 @@ def test_connected_component_many_most_recent_diff_value(label_store):
 
     connected = list(label_store.connected_component('a', 1))
     assert frozenset(connected) == frozenset([ab])
+
+
+def test_expand(label_store):
+    ab = Label('a', 'b', '', 1)
+    bc = Label('b', 'c', '', 1)
+    cd = Label('c', 'd', '', 1)
+    ae = Label('a', 'e', '', -1)
+    fg = Label('f', 'g', '', 1)
+
+    label_store.put(ab)
+    label_store.put(bc)
+    label_store.put(cd)
+    label_store.put(ae)
+    label_store.put(fg)
+
+    def get_pair(label):
+        return (label.content_id1, label.content_id2)
+
+    correct_pairs = [('a', 'b'),
+                     ('a', 'c'),
+                     ('a', 'd'),
+                     ('b', 'c'),
+                     ('b', 'd'),
+                     ('c', 'd')]
+
+    expansion = label_store.expand('a', 1)
+
+    assert frozenset(map(get_pair, expansion)) == \
+        frozenset(correct_pairs)
+
+    expansion = label_store.expand('e', 1)
+
+    assert frozenset(map(get_pair, expansion)) == frozenset([])
+
+    expansion = label_store.expand('f', 1)
+
+    correct_pairs = [('f', 'g')]
+
+    assert frozenset(map(get_pair, expansion)) == frozenset(correct_pairs)
