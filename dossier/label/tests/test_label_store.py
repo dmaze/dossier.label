@@ -8,7 +8,7 @@ from __future__ import absolute_import, division, print_function
 from pyquchk import qc
 import pytest
 
-from dossier.label import Label, LabelStore, CorefValue
+from dossier.label import Label, LabelStore
 from dossier.label.tests import kvl, coref_value, id_
 
 
@@ -272,12 +272,3 @@ def test_expand(label_store):
     correct_pairs = [('f', 'g')]
 
     assert frozenset(map(get_pair, expansion)) == frozenset(correct_pairs)
-
-
-def test_expand_coref_value(label_store):
-    ab = Label('a', 'b', '', -1)
-    bc = Label('b', 'c', '', -1)
-    label_store.put(ab)
-    label_store.put(bc)
-    assert all([lab.value == CorefValue.Negative
-                for lab in label_store.expand('a', -1)])

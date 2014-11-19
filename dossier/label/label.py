@@ -334,7 +334,7 @@ class LabelStore(object):
         return list(labels)
 
     def expand(self, content_id, value):
-        '''Return expanded set of labels for ``content_id``.
+        '''Return expanded set of labels from ``content_id``'s connected component.
 
         The :class:`Label`s returned by ``connected_component``
         contains only the :class:`Label`s stored in the
@@ -408,10 +408,9 @@ def expand(labels):
 
     ``labels`` must define a connected component: it is all of the
     edges that make up the *single* connected component in the
-    :class:`LabelStore` for a particular coreferent value. expand will
-    ignore subtopic assignments, and annotator_id will be an arbitrary
-    one selected from ``labels``. The expanded labels reside entirely
-    within memory.
+    :class:`LabelStore`.  expand will ignore subtopic assignments, and
+    annotator_id will be an arbitrary one selected from
+    ``labels``. The expanded labels reside entirely within memory.
 
     :param labels: ``list`` of :class:`Label` for the connected component.
     :rtype: ``list`` of :class:`Label`
@@ -421,8 +420,8 @@ def expand(labels):
     if len(labels) == 0:
         return []
 
-    annotator = labels[0].annotator_id
-    coref_value = labels[0].value
+    annotators = map(attrgetter('annotator_id'), labels)
+    annotator = annotators[0]
 
     data_backed_pairs = set()
     connected_component = set()
@@ -440,7 +439,7 @@ def expand(labels):
     for cid1, cid2 in combinations(connected_component, 2):
         if (cid1, cid2) not in data_backed_pairs and \
            (cid2, cid1) not in data_backed_pairs:
-            l = Label(cid1, cid2, annotator, coref_value)
+            l = Label(cid1, cid2, annotator, CorefValue(1))
             mem_backed_labels.append(l)
 
     return labels + mem_backed_labels
