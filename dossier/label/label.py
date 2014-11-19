@@ -406,22 +406,22 @@ def latest_labels(label_iterable):
 def expand(labels):
     '''Expand a set of labels that define a connected component.
 
-    ``labels`` must define a connected component: it is all of the
-    edges that make up the *single* connected component in the
-    :class:`LabelStore`.  expand will ignore subtopic assignments, and
-    annotator_id will be an arbitrary one selected from
-    ``labels``. The expanded labels reside entirely within memory.
+    ``labels`` must define a *positive* connected component: it is all
+    of the edges that make up the *single* connected component in the
+    :class:`LabelStore`. expand will ignore subtopic assignments, and
+    annotator_id will be an arbitrary one selected from ``labels``. The
+    expanded labels reside entirely within memory.
 
     :param labels: ``list`` of :class:`Label` for the connected component.
     :rtype: ``list`` of :class:`Label`
     '''
+    assert all(lab.value == CorefValue.Positive for lab in labels)
 
     # Anything to expand?
     if len(labels) == 0:
         return []
 
-    annotators = map(attrgetter('annotator_id'), labels)
-    annotator = annotators[0]
+    annotator = labels[0].annotator_id
 
     data_backed_pairs = set()
     connected_component = set()
@@ -439,7 +439,7 @@ def expand(labels):
     for cid1, cid2 in combinations(connected_component, 2):
         if (cid1, cid2) not in data_backed_pairs and \
            (cid2, cid1) not in data_backed_pairs:
-            l = Label(cid1, cid2, annotator, CorefValue(1))
+            l = Label(cid1, cid2, annotator, CorefValue.Positive)
             mem_backed_labels.append(l)
 
     return labels + mem_backed_labels
