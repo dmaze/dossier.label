@@ -10,7 +10,6 @@ from datetime import datetime
 import functools
 from itertools import groupby, imap, combinations
 import logging
-from operator import attrgetter
 import sys
 import time
 
@@ -215,6 +214,7 @@ class LabelStore(object):
     .. automethod:: get
     .. automethod:: get_all_for_content_id
     .. automethod:: connected_component
+    .. automethod:: expand
     .. automethod:: everything
     .. automethod:: delete_all
     '''
@@ -297,7 +297,7 @@ class LabelStore(object):
         return latest_labels(results)
 
     def connected_component(self, content_id, value):
-        '''Return a connected component for ``content_id``.
+        '''Return a connected component generator for ``content_id``.
 
         Given a ``content_id`` and a coreferent ``value`` (which must
         be ``-1``, ``0`` or ``1``), return the corresponding connected
@@ -310,16 +310,20 @@ class LabelStore(object):
         The ``value`` indicates which labels to include in the
         connected component.
 
+        (Note that even though this returns a generator, it will still
+        consume memory proportional to the number of labels in the
+        connected component.)
+
         :param str content_id: content id
         :param value: coreferent value
         :type value: :class:`CorefValue`
-        :rtype: ``list`` of :class:`Label`
+        :rtype: generator of :class:`Label`
         '''
         if isinstance(value, int):
             value = CorefValue(value)
         done = set()  # set of cids that we've queried with
         todo = set([content_id])  # set of cids to do a query for
-        labels = set()
+        label_hashes = set()
         while todo:
             cid = todo.pop()
             done.add(cid)
@@ -330,18 +334,23 @@ class LabelStore(object):
                     todo.add(label.content_id1)
                 if label.content_id2 not in done:
                     todo.add(label.content_id2)
-                labels.add(label)
-        return list(labels)
+
+                h = hash(label)
+                if h not in label_hashes:
+                    label_hashes.add(h)
+                    yield label
 
     def expand(self, content_id, value):
-        '''Return expanded set of labels from ``content_id``'s connected component.
+        '''Return expanded set of labels from a connected component.
+
+        The connected component is derived from ``content_id``.
 
         The :class:`Label`s returned by ``connected_component``
         contains only the :class:`Label`s stored in the
         :class:`LabelStore`, and does not include the :class:`Label`s
         you can infer from the connected component. This method
         returns both the data-backed :class:`Label`s and the inferred
-        :class:`Label`s
+        :class:`Label`s.
 
         Subtopic assignments of the expanded labels will be empty. The
         annotator_id will be an arbitrary annotator_id within the
@@ -352,9 +361,9 @@ class LabelStore(object):
         :type value: :class:`CorefValue`
         :rtype: ``list`` of :class:`Label`
         '''
-
-        connected_component = self.connected_component(content_id, value)
-        return expand(connected_component)
+        labels = list(self.connected_component(content_id, value))
+        labels.extend(expand_labels(labels))
+        return labels
 
     def everything(self, include_deleted=False):
         '''Returns a generator of all labels in the store.
@@ -395,54 +404,52 @@ def normalize_pair(x, y):
 
 
 def latest_labels(label_iterable):
-    '''Returns the most recent labels from a sorted iterable.
-    '''
+    '''Returns the most recent labels from a sorted iterable.'''
     for _, group in groupby(label_iterable):
         for lab in group:
             yield lab
             break
 
 
-def expand(labels):
+def expand_labels(labels):
     '''Expand a set of labels that define a connected component.
 
     ``labels`` must define a *positive* connected component: it is all
     of the edges that make up the *single* connected component in the
     :class:`LabelStore`. expand will ignore subtopic assignments, and
-    annotator_id will be an arbitrary one selected from ``labels``. The
-    expanded labels reside entirely within memory.
+    annotator_id will be an arbitrary one selected from ``labels``.
 
-    :param labels: ``list`` of :class:`Label` for the connected component.
-    :rtype: ``list`` of :class:`Label`
+    Note that this function only returns the expanded labels, which
+    is guaranteed to be disjoint with the given ``labels``. This
+    requirement implies that ``labels`` is held in memory to ensure
+    that no duplicates are returned.
+
+    :param labels: iterable of :class:`Label` for the connected component.
+    :rtype: generator of expanded :class:`Label`s only
     '''
+    labels = list(labels)
     assert all(lab.value == CorefValue.Positive for lab in labels)
 
     # Anything to expand?
     if len(labels) == 0:
-        return []
+        return
 
     annotator = labels[0].annotator_id
 
     data_backed_pairs = set()
     connected_component = set()
     for label in labels:
-        data_backed_pairs.add((label.content_id1, label.content_id2))
+        data_backed_pairs.add(
+            normalize_pair(label.content_id1, label.content_id2))
         connected_component.add(label.content_id1)
         connected_component.add(label.content_id2)
-
-    connected_component = sorted(connected_component)
 
     # We do not want to rebuild the Labels we already have,
     # because they have true annotator_id and subtopic
     # fields that we may want to preserve.
-    mem_backed_labels = []
     for cid1, cid2 in combinations(connected_component, 2):
-        if (cid1, cid2) not in data_backed_pairs and \
-           (cid2, cid1) not in data_backed_pairs:
-            l = Label(cid1, cid2, annotator, CorefValue.Positive)
-            mem_backed_labels.append(l)
-
-    return labels + mem_backed_labels
+        if normalize_pair(cid1, cid2) not in data_backed_pairs:
+            yield Label(cid1, cid2, annotator, CorefValue.Positive)
 
 
 def time_complement(t):

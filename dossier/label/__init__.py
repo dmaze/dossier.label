@@ -60,6 +60,6 @@ configuration setup.
 '''
 from __future__ import absolute_import, division, print_function
 
-from dossier.label.label import Label, LabelStore, CorefValue
+from dossier.label.label import Label, LabelStore, CorefValue, expand_labels
 
-__all__ = ['Label', 'LabelStore', 'CorefValue']
+__all__ = ['Label', 'LabelStore', 'CorefValue', 'expand_labels']
