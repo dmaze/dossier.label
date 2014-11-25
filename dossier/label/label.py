@@ -20,7 +20,9 @@ logger = logging.getLogger(__name__)
 
 
 MAX_MILLI_TICKS = ((60 * 60 * 24) * 365 * 100) * 1000
-'''The maximum number of milliseconds supported.
+
+def time_complement(t):
+    '''The maximum number of milliseconds supported is MAX_MILLI_TICKS
 
 Our kvlayer backend cannot (currently) guarantee a correct ordering
 of signed integers, but can guarantee a correct ordering of unsigned
@@ -33,6 +35,8 @@ Because kvlayer cannot guarantee a correct ordering of signed integers,
 we avoid the sign switch by subtracting the ticks from an arbitrary
 date in the future (UNIX epoch + 100 years).
 '''
+    return MAX_MILLI_TICKS - t
+
 
 
 class CorefValue(enum.Enum):
@@ -116,7 +120,7 @@ class Label(namedtuple('_Label', 'content_id1 content_id2 subtopic_id1 ' +
 
         :rtype: ``(key, value)``
         '''
-        epoch_ticks_rev = MAX_MILLI_TICKS - self.epoch_ticks
+        epoch_ticks_rev = time_complement(self.epoch_ticks)
         negated = self._replace(epoch_ticks=epoch_ticks_rev)[0:len(self)-1]
         return (negated, str(self.value.value))
 
@@ -136,7 +140,7 @@ class Label(namedtuple('_Label', 'content_id1 content_id2 subtopic_id1 ' +
         cid1, cid2, subid1, subid2, ann, ticks = key
         return Label(content_id1=cid1, content_id2=cid2,
                      subtopic_id1=subid1, subtopic_id2=subid2, annotator_id=ann,
-                     epoch_ticks=MAX_MILLI_TICKS - int(ticks),
+                     epoch_ticks=time_complement(int(ticks)),
                      value=int(value))
 
     def __lt__(l1, l2):
@@ -299,9 +303,9 @@ class LabelStore(object):
     def connected_component(self, content_id, value):
         '''Return a connected component generator for ``content_id``.
 
-        Given a ``content_id`` and a coreferent ``value`` (which must
-        be ``-1``, ``0`` or ``1``), return the corresponding connected
-        component by following all transitive relationships.
+        Given a ``content_id`` and a coreference ``value`` of ``-1``,
+        ``0`` or ``1``, return the corresponding connected component
+        by following all transitivity relationships.
 
         For example, if ``(a, b, 1)`` is a label and ``(b, c, 1)`` is
         a label, then ``connected_component('a', 1)`` will return both
@@ -318,6 +322,7 @@ class LabelStore(object):
         :param value: coreferent value
         :type value: :class:`CorefValue`
         :rtype: generator of :class:`Label`
+
         '''
         if isinstance(value, int):
             value = CorefValue(value)
@@ -410,7 +415,6 @@ def latest_labels(label_iterable):
             yield lab
             break
 
-
 def expand_labels(labels):
     '''Expand a set of labels that define a connected component.
 
@@ -451,6 +455,3 @@ def expand_labels(labels):
         if normalize_pair(cid1, cid2) not in data_backed_pairs:
             yield Label(cid1, cid2, annotator, CorefValue.Positive)
 
-
-def time_complement(t):
-    return MAX_MILLI_TICKS - t
