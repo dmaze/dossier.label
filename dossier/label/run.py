@@ -1,7 +1,14 @@
-'''dossier.label.run TODO: this is a... or use autoclass and describe the App below?
-
+'''
 .. This software is released under an MIT/X11 open source license.
    Copyright 2012-2014 Diffeo, Inc.
+
+``dossier.label`` command line tool
+===================================
+
+``dossier.label`` is a command line application for viewing the raw label
+data inside the database. Generally, this is a debugging tool for developers.
+
+Run ``dossier.label --help`` for the available commands.
 '''
 from __future__ import absolute_import, division, print_function
 import argparse

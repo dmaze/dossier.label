@@ -57,6 +57,8 @@ configuration setup.
 .. autoclass:: LabelStore
 .. autoclass:: Label
 .. autoclass:: CorefValue
+
+.. automodule:: dossier.label.run
 '''
 from __future__ import absolute_import, division, print_function
 
