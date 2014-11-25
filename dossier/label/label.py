@@ -19,8 +19,8 @@ import enum
 logger = logging.getLogger(__name__)
 
 
-MAX_MILLI_TICKS = ((60 * 60 * 24) * 365 * 100) * 1000
-'''The maximum number of milliseconds supported.
+MAX_SECOND_TICKS = ((60 * 60 * 24) * 365 * 100)
+'''The maximum number of seconds supported.
 
 Our kvlayer backend cannot (currently) guarantee a correct ordering
 of signed integers, but can guarantee a correct ordering of unsigned
@@ -73,7 +73,7 @@ class Label(namedtuple('_Label', 'content_id1 content_id2 subtopic_id1 ' +
         if isinstance(value, int):
             value = CorefValue(value)
         if epoch_ticks is None:
-            epoch_ticks = long(time.time() * 1000)
+            epoch_ticks = long(time.time())
         if subtopic_id1 is None:
             subtopic_id1 = ''
         if subtopic_id2 is None:
@@ -116,7 +116,7 @@ class Label(namedtuple('_Label', 'content_id1 content_id2 subtopic_id1 ' +
 
         :rtype: ``(key, value)``
         '''
-        epoch_ticks_rev = MAX_MILLI_TICKS - self.epoch_ticks
+        epoch_ticks_rev = MAX_SECOND_TICKS - self.epoch_ticks
         negated = self._replace(epoch_ticks=epoch_ticks_rev)[0:len(self)-1]
         return (negated, str(self.value.value))
 
@@ -136,7 +136,7 @@ class Label(namedtuple('_Label', 'content_id1 content_id2 subtopic_id1 ' +
         cid1, cid2, subid1, subid2, ann, ticks = key
         return Label(content_id1=cid1, content_id2=cid2,
                      subtopic_id1=subid1, subtopic_id2=subid2, annotator_id=ann,
-                     epoch_ticks=MAX_MILLI_TICKS - int(ticks),
+                     epoch_ticks=MAX_SECOND_TICKS - int(ticks),
                      value=int(value))
 
     def __lt__(l1, l2):
@@ -200,7 +200,7 @@ class Label(namedtuple('_Label', 'content_id1 content_id2 subtopic_id1 ' +
             subid1 = 'subtopic1=%s, ' % self.subtopic_id1
         if self.subtopic_id2:
             subid2 = 'subtopic2=%s, ' % self.subtopic_id2
-        dt = datetime.utcfromtimestamp(self.epoch_ticks / 1000.0)
+        dt = datetime.utcfromtimestamp(self.epoch_ticks)
         return tpl.format(cid1=self.content_id1, cid2=self.content_id2,
                          subid1=subid1, subid2=subid2, tstr=str(dt),
                          ann=self.annotator_id, v=self.value)
@@ -345,16 +345,15 @@ class LabelStore(object):
 
         The connected component is derived from ``content_id``.
 
-        The :class:`Label`s returned by ``connected_component``
-        contains only the :class:`Label`s stored in the
-        :class:`LabelStore`, and does not include the :class:`Label`s
-        you can infer from the connected component. This method
-        returns both the data-backed :class:`Label`s and the inferred
-        :class:`Label`s.
+        The labels returned by :meth:`LabelStore.connected_component`
+        contains only the :class:`Label` stored in the
+        :class:`LabelStore`, and does not include the labels you can
+        infer from the connected component. This method returns both
+        the data-backed labels and the inferred labels.
 
         Subtopic assignments of the expanded labels will be empty. The
-        annotator_id will be an arbitrary annotator_id within the
-        connected component.
+        ``annotator_id`` will be an arbitrary ``annotator_id`` within
+        the connected component.
 
         :param str content_id: content id
         :param value: coreferent value
@@ -453,4 +452,4 @@ def expand_labels(labels):
 
 
 def time_complement(t):
-    return MAX_MILLI_TICKS - t
+    return MAX_SECOND_TICKS - t
