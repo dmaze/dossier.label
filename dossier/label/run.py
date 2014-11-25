@@ -1,4 +1,4 @@
-'''dossier.label.run
+'''dossier.label.run TODO: this is a... or use autoclass and describe the App below?
 
 .. This software is released under an MIT/X11 open source license.
    Copyright 2012-2014 Diffeo, Inc.

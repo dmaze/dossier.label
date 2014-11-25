@@ -1,6 +1,6 @@
-`dossier.label` is a Python package that provides an API to store and query
-labels (or "ground truth") in a database backend. Currently supported
-backends include PostgreSQL, Accumulo and Redis.
+`dossier.label` is a Python package that provides an API to store and
+query labels (or "ground truth") in a database backend via kvlayer,
+which currently include support for PostgreSQL, Accumulo and Redis.
 
 
 ### Installation
@@ -18,5 +18,5 @@ compatible.
 ### Documentation
 
 API documentation with examples is available as part of the Dossier Stack 
-documentation: http://diffeo.com/products/dossier-stack
+documentation: https://diffeo.com/products/dossier-stack
 

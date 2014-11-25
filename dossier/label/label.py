@@ -35,6 +35,11 @@ date in the future (UNIX epoch + 100 years).
 '''
 
 
+def time_complement(t):
+    return MAX_SECOND_TICKS - t
+
+
+
 class CorefValue(enum.Enum):
     '''
     An enumeration that describes the value of a coreference judgment by a
@@ -116,7 +121,7 @@ class Label(namedtuple('_Label', 'content_id1 content_id2 subtopic_id1 ' +
 
         :rtype: ``(key, value)``
         '''
-        epoch_ticks_rev = MAX_SECOND_TICKS - self.epoch_ticks
+        epoch_ticks_rev = time_complement(self.epoch_ticks)
         negated = self._replace(epoch_ticks=epoch_ticks_rev)[0:len(self)-1]
         return (negated, str(self.value.value))
 
@@ -135,8 +140,9 @@ class Label(namedtuple('_Label', 'content_id1 content_id2 subtopic_id1 ' +
         key, value = row
         cid1, cid2, subid1, subid2, ann, ticks = key
         return Label(content_id1=cid1, content_id2=cid2,
-                     subtopic_id1=subid1, subtopic_id2=subid2, annotator_id=ann,
-                     epoch_ticks=MAX_SECOND_TICKS - int(ticks),
+                     subtopic_id1=subid1, subtopic_id2=subid2,
+                     annotator_id=ann,
+                     epoch_ticks=time_complement(int(ticks)),
                      value=int(value))
 
     def __lt__(l1, l2):
@@ -299,9 +305,9 @@ class LabelStore(object):
     def connected_component(self, content_id, value):
         '''Return a connected component generator for ``content_id``.
 
-        Given a ``content_id`` and a coreferent ``value`` (which must
-        be ``-1``, ``0`` or ``1``), return the corresponding connected
-        component by following all transitive relationships.
+        Given a ``content_id`` and a coreference ``value`` of ``-1``,
+        ``0`` or ``1``, return the corresponding connected component
+        by following all transitivity relationships.
 
         For example, if ``(a, b, 1)`` is a label and ``(b, c, 1)`` is
         a label, then ``connected_component('a', 1)`` will return both
@@ -318,6 +324,7 @@ class LabelStore(object):
         :param value: coreferent value
         :type value: :class:`CorefValue`
         :rtype: generator of :class:`Label`
+
         '''
         if isinstance(value, int):
             value = CorefValue(value)
@@ -449,7 +456,3 @@ def expand_labels(labels):
     for cid1, cid2 in combinations(connected_component, 2):
         if normalize_pair(cid1, cid2) not in data_backed_pairs:
             yield Label(cid1, cid2, annotator, CorefValue.Positive)
-
-
-def time_complement(t):
-    return MAX_SECOND_TICKS - t
