@@ -8,7 +8,7 @@ from __future__ import absolute_import, division, print_function
 from collections import namedtuple
 from datetime import datetime
 import functools
-from itertools import groupby, imap, combinations
+from itertools import groupby, imap, combinations, ifilter
 import logging
 import sys
 import time
@@ -302,7 +302,7 @@ class LabelStore(object):
         results = imap(Label._from_kvlayer, self.kvl.scan(self.TABLE, (s, e)))
         return latest_labels(results)
 
-    def connected_component(self, content_id, value):
+    def connected_component(self, content_id):
         '''Return a connected component generator for ``content_id``.
 
         Given a ``content_id`` and a coreference ``value`` of ``-1``,
@@ -326,8 +326,6 @@ class LabelStore(object):
         :rtype: generator of :class:`Label`
 
         '''
-        if isinstance(value, int):
-            value = CorefValue(value)
         done = set()  # set of cids that we've queried with
         todo = set([content_id])  # set of cids to do a query for
         label_hashes = set()
@@ -335,7 +333,7 @@ class LabelStore(object):
             cid = todo.pop()
             done.add(cid)
             for label in self.get_all_for_content_id(cid):
-                if label.value != value:
+                if label.value != CorefValue.Positive:
                     continue
                 if label.content_id1 not in done:
                     todo.add(label.content_id1)
@@ -347,7 +345,7 @@ class LabelStore(object):
                     label_hashes.add(h)
                     yield label
 
-    def expand(self, content_id, value):
+    def expand(self, content_id):
         '''Return expanded set of labels from a connected component.
 
         The connected component is derived from ``content_id``.
@@ -367,9 +365,44 @@ class LabelStore(object):
         :type value: :class:`CorefValue`
         :rtype: ``list`` of :class:`Label`
         '''
-        labels = list(self.connected_component(content_id, value))
+        labels = list(self.connected_component(content_id))
         labels.extend(expand_labels(labels))
         return labels
+
+    def negative_inference(self, content_id):
+        '''Returns a generator of negative label relationships.
+        '''
+        neg_labels = ifilter(lambda l: l.value == CorefValue.Negative,
+                             self.get_all_for_content_id(content_id))
+        for label in neg_labels:
+            label_inf = self.negative_label_inference(label)
+            for label in label_inf:
+                yield label
+
+    def negative_label_inference(self, label):
+        '''Returns a generator of negative label relationships inferred
+        from a negative label
+        '''
+        assert label.value == CorefValue.Negative
+
+        cid1_comp = self.connected_component(label.content_id1)
+        cid2_comp = self.connected_component(label.content_id2)
+
+        def get_non_query_cid(cid, label):
+            if label.content_id1 == cid:
+                return label.content_id2
+            else:
+                return label.content_id1
+
+        yield label
+
+        for comp_label in cid2_comp:
+            cid = get_non_query_cid(label.content_id2, comp_label)
+            yield Label(label.content_id1, cid, 'auto', CorefValue.Negative)
+
+        for comp_label in cid1_comp:
+            cid = get_non_query_cid(label.content_id1, comp_label)
+            yield Label(label.content_id2, cid, 'auto', CorefValue.Negative)
 
     def everything(self, include_deleted=False):
         '''Returns a generator of all labels in the store.

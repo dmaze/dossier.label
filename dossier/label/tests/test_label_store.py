@@ -143,7 +143,7 @@ def test_connected_component_basic(label_store):
     label_store.put(ac)
     label_store.put(bc)
 
-    connected = list(label_store.connected_component('a', 1))
+    connected = list(label_store.connected_component('a'))
     assert frozenset(connected) == frozenset([ab, ac, bc])
 
 
@@ -155,7 +155,7 @@ def test_connected_component_unordered(label_store):
     label_store.put(ac)
     label_store.put(bc)
 
-    connected = list(label_store.connected_component('a', 1))
+    connected = list(label_store.connected_component('a'))
     assert frozenset(connected) == frozenset([ab, ac, bc])
 
 
@@ -167,7 +167,7 @@ def test_connected_component_diff_value(label_store):
     label_store.put(ac)
     label_store.put(bc)
 
-    connected = list(label_store.connected_component('a', 1))
+    connected = list(label_store.connected_component('a'))
     assert frozenset(connected) == frozenset([ab, bc])
 
 
@@ -179,7 +179,7 @@ def test_connected_component_many(label_store):
     label_store.put(bc)
     label_store.put(cd)
 
-    connected = list(label_store.connected_component('a', 1))
+    connected = list(label_store.connected_component('a'))
     assert frozenset(connected) == frozenset([ab, bc, cd])
 
 
@@ -191,7 +191,7 @@ def test_connected_component_many_diff_value(label_store):
     label_store.put(bc)
     label_store.put(cd)
 
-    connected = list(label_store.connected_component('a', 1))
+    connected = list(label_store.connected_component('a'))
     assert frozenset(connected) == frozenset([ab])
 
 
@@ -203,7 +203,7 @@ def test_connected_component_many_most_recent(label_store):
     label_store.put(bc)
     label_store.put(cd)
 
-    connected = list(label_store.connected_component('a', 1))
+    connected = list(label_store.connected_component('a'))
     assert frozenset(connected) == frozenset([ab])
 
     # This label should overwrite the existing `bc` label and expand
@@ -211,7 +211,7 @@ def test_connected_component_many_most_recent(label_store):
     bc = Label('b', 'c', '', 1, epoch_ticks=bc.epoch_ticks + 1)
     label_store.put(bc)
 
-    connected = list(label_store.connected_component('a', 1))
+    connected = list(label_store.connected_component('a'))
     assert frozenset(connected) == frozenset([ab, bc, cd])
 
 
@@ -223,7 +223,7 @@ def test_connected_component_many_most_recent_diff_value(label_store):
     label_store.put(bc)
     label_store.put(cd)
 
-    connected = list(label_store.connected_component('a', 1))
+    connected = list(label_store.connected_component('a'))
     assert frozenset(connected) == frozenset([ab, bc, cd])
 
     # This label should overwrite the existing `bc` label and contract
@@ -231,7 +231,7 @@ def test_connected_component_many_most_recent_diff_value(label_store):
     bc = Label('b', 'c', '', -1, epoch_ticks=bc.epoch_ticks + 1)
     label_store.put(bc)
 
-    connected = list(label_store.connected_component('a', 1))
+    connected = list(label_store.connected_component('a'))
     assert frozenset(connected) == frozenset([ab])
 
 
@@ -258,17 +258,87 @@ def test_expand(label_store):
                      ('b', 'd'),
                      ('c', 'd')]
 
-    expansion = label_store.expand('a', 1)
+    expansion = label_store.expand('a')
 
     assert frozenset(map(get_pair, expansion)) == \
         frozenset(correct_pairs)
 
-    expansion = label_store.expand('e', 1)
+    expansion = label_store.expand('e')
 
     assert frozenset(map(get_pair, expansion)) == frozenset([])
 
-    expansion = label_store.expand('f', 1)
+    expansion = label_store.expand('f')
 
     correct_pairs = [('f', 'g')]
 
     assert frozenset(map(get_pair, expansion)) == frozenset(correct_pairs)
+
+
+def test_negative_label_inference(label_store):
+    ac = Label('a', 'c', '', 1)
+    bc = Label('b', 'c', '', 1)
+
+    de = Label('d', 'e', '', 1)
+    df = Label('d', 'f', '', 1)
+    dg = Label('d', 'g', '', -1)
+
+    cd = Label('c', 'd', '', -1)
+
+    label_store.put(ac)
+    label_store.put(bc)
+    label_store.put(de)
+    label_store.put(df)
+    label_store.put(cd)
+    label_store.put(dg)
+
+    def get_pair(label):
+        return (label.content_id1, label.content_id2)
+
+    correct_pairs = [('c', 'e'),
+                     ('c', 'f'),
+                     ('d', 'a'),
+                     ('d', 'b'),
+                     ('c', 'd')]
+
+    inference = label_store.negative_label_inference(cd)
+
+    assert frozenset(map(get_pair, inference)) == \
+        frozenset(correct_pairs)
+
+
+def test_negative_inference(label_store):
+    ac = Label('a', 'c', '', 1)
+    bc = Label('b', 'c', '', 1)
+
+    de = Label('d', 'e', '', 1)
+    df = Label('d', 'f', '', 1)
+
+    cg = Label('c', 'g', '', -1)
+    dg = Label('d', 'g', '', -1)
+
+    hg = Label('h', 'g', '', 1)
+
+    label_store.put(ac)
+    label_store.put(bc)
+    label_store.put(de)
+    label_store.put(df)
+    label_store.put(cg)
+    label_store.put(dg)
+    label_store.put(hg)
+
+    def get_pair(label):
+        return (label.content_id1, label.content_id2)
+
+    correct_pairs = [('g', 'a'),
+                     ('g', 'b'),
+                     ('c', 'h'),
+                     ('g', 'e'),
+                     ('g', 'f'),
+                     ('d', 'h'),
+                     ('g', 'c'),
+                     ('g', 'd')]
+
+    inference = label_store.negative_inference('g')
+
+    assert frozenset(map(get_pair, inference)) == \
+        frozenset(correct_pairs)
