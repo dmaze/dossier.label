@@ -370,7 +370,14 @@ class LabelStore(object):
         return labels
 
     def negative_inference(self, content_id):
-        '''Returns a generator of negative label relationships.
+        '''Return a generator of inferred negative label relationships
+        centered on ``content_id``.
+
+        Negative labels are inferred by getting all other content ids
+        connected to ``content_id`` through a negative label, then
+        running :meth:`LabelStore.negative_label_inference` on those
+        labels. See :meth:`LabelStore.negative_label_inference` for
+        more information.
         '''
         neg_labels = ifilter(lambda l: l.value == CorefValue.Negative,
                              self.get_all_for_content_id(content_id))
@@ -380,8 +387,16 @@ class LabelStore(object):
                 yield label
 
     def negative_label_inference(self, label):
-        '''Returns a generator of negative label relationships inferred
-        from a negative label
+        '''Return a generator of inferred negative label relationships.
+
+        Construct ad-hoc negative labels between ``label.content_id1``
+        and the positive connected component of ``label.content_id2``,
+        and ``label.content_id2`` to the connected component of
+        ``label.content_id1``.
+
+        Note this will allocate memory proportional to the size of the
+        connected components of ``label.content_id1`` and
+        ``label.content_id2``.
         '''
         assert label.value == CorefValue.Negative
 
