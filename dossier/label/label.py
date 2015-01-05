@@ -298,7 +298,7 @@ class LabelStore(object):
             return Label._from_kvlayer(row)
         raise KeyError((s, e))
 
-    def get_all_for_content_id(self, content_id):
+    def get_all_for_content_id(self, content_id, subtopic_id=None):
         '''Return a generator of labels connected to ``content_id``.
 
         If no labels are defined for ``content_id``, then the generator
@@ -313,7 +313,11 @@ class LabelStore(object):
         s = (content_id,)
         e = (content_id + '\xff',)
         results = imap(Label._from_kvlayer, self.kvl.scan(self.TABLE, (s, e)))
-        return latest_labels(results)
+        results = latest_labels(results)
+        if subtopic_id is not None:
+            pair = (content_id, subtopic_id)
+            results = ifilter(lambda lab: pair in lab, results)
+        return results
 
     def connected_component(self, content_id):
         '''Return a connected component generator for ``content_id``.
