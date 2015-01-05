@@ -342,3 +342,24 @@ def test_negative_inference(label_store):
 
     assert frozenset(map(get_pair, inference)) == \
         frozenset(correct_pairs)
+
+
+# Subtopic testing is below.
+# cc is connected component.
+# exp is label expansion.
+
+
+def test_sub_direct_connect(label_store):
+    a1b2 = Label('a', 'b', '', 1, '1', '2')
+    a1c3 = Label('a', 'c', '', 1, '1', '3')
+    b2c3 = Label('b', 'c', '', 1, '2', '3')
+    a4b2 = Label('a', 'b', '', 1, '4', '2')
+    label_store.put(a1b2)
+    label_store.put(a1c3)
+    label_store.put(b2c3)
+    label_store.put(a4b2)
+
+    # a4b2 should not be included because we're demanding a specific
+    # subtopic_id of 'a'.
+    direct = list(label_store.get_all_for_content_id('a', subtopic_id='1'))
+    assert direct == [a1b2, a1c3]
