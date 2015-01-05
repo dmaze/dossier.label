@@ -126,6 +126,21 @@ class Label(namedtuple('_Label', 'content_id1 content_id2 subtopic_id1 ' +
         else:
             return self.content_id1
 
+    def subtopic_for(self, content_id):
+        '''Get the subtopic id that corresponds with a content id.
+
+        Beware ``content_id`` must be one of either ``self.content_id1``
+        or ``self.content_id2``.
+        '''
+
+        assert content_id == self.content_id1 or \
+            content_id == self.content_id2
+
+        if content_id == self.content_id1:
+            return self.subtopic_id1
+        else:
+            return self.subtopic_id2
+
     def _to_kvlayer(self):
         '''Converts this label to a kvlayer tuple.
 
