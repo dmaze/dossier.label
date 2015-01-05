@@ -98,9 +98,22 @@ class Label(namedtuple('_Label', 'content_id1 content_id2 subtopic_id1 ' +
             content_id1=self.content_id2, content_id2=self.content_id1,
             subtopic_id1=self.subtopic_id2, subtopic_id2=self.subtopic_id1)
 
-    def __contains__(self, content_id):
-        '''Returns ``True`` if ``content_id`` is in this label.'''
-        return content_id in (self.content_id2, self.content_id2)
+    def __contains__(self, v):
+        '''Tests membership of identifiers.
+
+        If `v` is a tuple of ``(content_id, subtopic_id)``, then the
+        pair is checked for membership. Otherwise, `v` must be a `str`
+        and is checked for equality to one of the content ids in this
+        label.
+        '''
+        if isinstance(v, tuple) and len(v) == 2:
+            cid, subid = v
+            cid1, subid1 = self.content_id1, self.subtopic_id1
+            cid2, subid2 = self.content_id2, self.subtopic_id2
+            return (cid == cid1 and subid == subid1) \
+                or (cid == cid2 and subid == subid2)
+        else:
+            return v == self.content_id1 or v == self.content_id2
 
     def other(self, content_id):
         '''Returns the other content id.
