@@ -81,11 +81,11 @@ def test_direct_connect_recent(label_store):
         label_store.put(lab1)
         label_store.put(lab2)
 
-        direct = list(label_store.get_all_for_content_id(cid1))
+        direct = list(label_store.directly_connected(cid1))
         assert direct == [lab2] and direct == [lab1]
         assert direct[0].value == lab2.value
 
-        direct = list(label_store.get_all_for_content_id(cid2))
+        direct = list(label_store.directly_connected(cid2))
         assert direct == [lab2] and direct == [lab1]
         assert direct[0].value == lab2.value
     _()
@@ -101,11 +101,11 @@ def test_direct_connect_recent_unordered(label_store):
         label_store.put(lab1)
         label_store.put(lab2)
 
-        direct = list(label_store.get_all_for_content_id(cid1))
+        direct = list(label_store.directly_connected(cid1))
         assert direct == [lab2] and direct == [lab1]
         assert direct[0].value == lab2.value
 
-        direct = list(label_store.get_all_for_content_id(cid2))
+        direct = list(label_store.directly_connected(cid2))
         assert direct == [lab2] and direct == [lab1]
         assert direct[0].value == lab2.value
     _()
@@ -119,7 +119,7 @@ def test_direct_connect(label_store):
     label_store.put(ac)
     label_store.put(bc)
 
-    direct = list(label_store.get_all_for_content_id('a'))
+    direct = list(label_store.directly_connected('a'))
     assert direct == [ab, ac]
 
 
@@ -131,7 +131,7 @@ def test_direct_connect_unordered(label_store):
     label_store.put(ac)
     label_store.put(bc)
 
-    direct = list(label_store.get_all_for_content_id('a'))
+    direct = list(label_store.directly_connected('a'))
     assert direct == [ab, ac]
 
 
@@ -248,30 +248,16 @@ def test_expand(label_store):
     label_store.put(ae)
     label_store.put(fg)
 
-    def get_pair(label):
-        return (label.content_id1, label.content_id2)
+    correct_pairs = [Label('a', 'b', '', 1),
+                     Label('a', 'c', '', 1),
+                     Label('a', 'd', '', 1),
+                     Label('b', 'c', '', 1),
+                     Label('b', 'd', '', 1),
+                     Label('c', 'd', '', 1)]
 
-    correct_pairs = [('a', 'b'),
-                     ('a', 'c'),
-                     ('a', 'd'),
-                     ('b', 'c'),
-                     ('b', 'd'),
-                     ('c', 'd')]
-
-    expansion = label_store.expand('a')
-
-    assert frozenset(map(get_pair, expansion)) == \
-        frozenset(correct_pairs)
-
-    expansion = label_store.expand('e')
-
-    assert frozenset(map(get_pair, expansion)) == frozenset([])
-
-    expansion = label_store.expand('f')
-
-    correct_pairs = [('f', 'g')]
-
-    assert frozenset(map(get_pair, expansion)) == frozenset(correct_pairs)
+    assert frozenset(label_store.expand('a')) == frozenset(correct_pairs)
+    assert len(label_store.expand('e')) == 0
+    assert label_store.expand('f') == [Label('f', 'g', '', 1)]
 
 
 def test_negative_label_inference(label_store):
@@ -345,8 +331,6 @@ def test_negative_inference(label_store):
 
 
 # Subtopic testing is below.
-# cc is connected component.
-# exp is label expansion.
 
 
 def test_sub_direct_connect(label_store):
@@ -361,5 +345,32 @@ def test_sub_direct_connect(label_store):
 
     # a4b2 should not be included because we're demanding a specific
     # subtopic_id of 'a'.
-    direct = list(label_store.get_all_for_content_id('a', subtopic_id='1'))
+    direct = list(label_store.directly_connected(('a', '1')))
     assert direct == [a1b2, a1c3]
+
+
+def test_sub_connected(label_store):
+    a1b2 = Label('a', 'b', '', 1, '1', '2')
+    b2c3 = Label('b', 'c', '', 1, '2', '3')
+    b4c5 = Label('b', 'c', '', 1, '4', '5')
+    label_store.put(a1b2)
+    label_store.put(b2c3)
+    label_store.put(b4c5)
+
+    connected = list(label_store.connected_component(('a', '1')))
+    assert frozenset(connected) == frozenset([a1b2, b2c3])
+
+
+def test_sub_expand(label_store):
+    a1b2 = Label('a', 'b', '', 1, '1', '2')
+    b2c3 = Label('b', 'c', '', 1, '2', '3')
+    b4c5 = Label('b', 'c', '', 1, '4', '5')  # not in subtopic expansion!
+    label_store.put(a1b2)
+    label_store.put(b2c3)
+    label_store.put(b4c5)
+
+    # Not phyiscally present in the label table, but part of expansion!
+    a1c3 = Label('a', 'c', '', 1, '1', '3')
+
+    connected = list(label_store.expand(('a', '1')))
+    assert frozenset(connected) == frozenset([a1b2, b2c3, a1c3])

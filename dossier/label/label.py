@@ -105,7 +105,13 @@ class Label(namedtuple('_Label', 'content_id1 content_id2 subtopic_id1 ' +
         pair is checked for membership. Otherwise, `v` must be a `str`
         and is checked for equality to one of the content ids in this
         label.
+
+        As a special case, if ``v`` is ``(content_id, None)``, then
+        ``v`` is treated as if it were ``content_id``.
         '''
+        if isinstance(v, tuple) and len(v) == 2 and v[1] is None:
+            v = v[0]
+
         if isinstance(v, tuple) and len(v) == 2:
             cid, subid = v
             cid1, subid1 = self.content_id1, self.subtopic_id1
@@ -246,7 +252,7 @@ class LabelStore(object):
     .. automethod:: __init__
     .. automethod:: put
     .. automethod:: get
-    .. automethod:: get_all_for_content_id
+    .. automethod:: directly_connected
     .. automethod:: connected_component
     .. automethod:: expand
     .. automethod:: everything
@@ -313,18 +319,23 @@ class LabelStore(object):
             return Label._from_kvlayer(row)
         raise KeyError((s, e))
 
-    def get_all_for_content_id(self, content_id, subtopic_id=None):
-        '''Return a generator of labels connected to ``content_id``.
+    def directly_connected(self, ident):
+        '''Return a generator of labels connected to ``ident``.
 
-        If no labels are defined for ``content_id``, then the generator
+        ``ident`` may be a ``content_id`` or a ``(content_id,
+        subtopic_id)``.
+
+        If no labels are defined for ``ident``, then the generator
         will yield no labels.
 
         Note that this only returns *directly* connected labels. It
         will not follow transitive relationships.
 
-        :param str content_id: content id
+        :param ident: content id or (content id and subtopic id)
+        :type ident: ``str`` or ``(str, str)``
         :rtype: generator of :class:`Label`
         '''
+        content_id, subtopic_id = normalize_ident(ident)
         s = (content_id,)
         e = (content_id + '\xff',)
         results = imap(Label._from_kvlayer, self.kvl.scan(self.TABLE, (s, e)))
@@ -334,53 +345,57 @@ class LabelStore(object):
             results = ifilter(lambda lab: pair in lab, results)
         return results
 
-    def connected_component(self, content_id):
-        '''Return a connected component generator for ``content_id``.
+    def connected_component(self, ident):
+        '''Return a connected component generator for ``ident``.
 
-        Given a ``content_id`` and a coreference ``value`` of ``-1``,
-        ``0`` or ``1``, return the corresponding connected component
-        by following all transitivity relationships.
+        ``ident`` may be a ``content_id`` or a ``(content_id,
+        subtopic_id)``.
+
+        Given an ``ident``, return the corresponding connected
+        component by following all positive transitivity relationships.
 
         For example, if ``(a, b, 1)`` is a label and ``(b, c, 1)`` is
-        a label, then ``connected_component('a', 1)`` will return both
+        a label, then ``connected_component('a')`` will return both
         labels even though ``a`` and ``c`` are not directly connected.
-
-        The ``value`` indicates which labels to include in the
-        connected component.
 
         (Note that even though this returns a generator, it will still
         consume memory proportional to the number of labels in the
         connected component.)
 
-        :param str content_id: content id
-        :param value: coreferent value
-        :type value: :class:`CorefValue`
+        :param ident: content id or (content id and subtopic id)
+        :type ident: ``str`` or ``(str, str)``
         :rtype: generator of :class:`Label`
-
         '''
+        ident = normalize_ident(ident)
         done = set()  # set of cids that we've queried with
-        todo = set([content_id])  # set of cids to do a query for
+        todo = set([ident])  # set of cids to do a query for
         label_hashes = set()
         while todo:
-            cid = todo.pop()
-            done.add(cid)
-            for label in self.get_all_for_content_id(cid):
+            ident = todo.pop()
+            done.add(ident)
+            for label in self.directly_connected(ident):
                 if label.value != CorefValue.Positive:
                     continue
-                if label.content_id1 not in done:
-                    todo.add(label.content_id1)
-                if label.content_id2 not in done:
-                    todo.add(label.content_id2)
+                ident1, ident2 = idents_from_label(
+                    label, subtopic=ident_has_subtopic(ident))
+                if ident1 not in done:
+                    todo.add(ident1)
+                if ident2 not in done:
+                    todo.add(ident2)
 
                 h = hash(label)
                 if h not in label_hashes:
                     label_hashes.add(h)
                     yield label
 
-    def expand(self, content_id):
+    def expand(self, ident):
         '''Return expanded set of labels from a connected component.
 
-        The connected component is derived from ``content_id``.
+        The connected component is derived from ``ident``. ``ident``
+        may be a ``content_id`` or a ``(content_id, subtopic_id)``.
+        If ``ident`` identifies a subtopic, then expansion is done
+        on a subtopic connected component (and expanded labels retain
+        subtopic information).
 
         The labels returned by :meth:`LabelStore.connected_component`
         contains only the :class:`Label` stored in the
@@ -397,8 +412,9 @@ class LabelStore(object):
         :type value: :class:`CorefValue`
         :rtype: ``list`` of :class:`Label`
         '''
-        labels = list(self.connected_component(content_id))
-        labels.extend(expand_labels(labels))
+        subtopic = ident_has_subtopic(normalize_ident(ident))
+        labels = list(self.connected_component(ident))
+        labels.extend(expand_labels(labels, subtopic=subtopic))
         return labels
 
     def negative_inference(self, content_id):
@@ -412,7 +428,7 @@ class LabelStore(object):
         more information.
         '''
         neg_labels = ifilter(lambda l: l.value == CorefValue.Negative,
-                             self.get_all_for_content_id(content_id))
+                             self.directly_connected(content_id))
         for label in neg_labels:
             label_inf = self.negative_label_inference(label)
             for label in label_inf:
@@ -497,7 +513,7 @@ def latest_labels(label_iterable):
             break
 
 
-def expand_labels(labels):
+def expand_labels(labels, subtopic=False):
     '''Expand a set of labels that define a connected component.
 
     ``labels`` must define a *positive* connected component: it is all
@@ -509,6 +525,10 @@ def expand_labels(labels):
     is guaranteed to be disjoint with the given ``labels``. This
     requirement implies that ``labels`` is held in memory to ensure
     that no duplicates are returned.
+
+    If ``subtopic`` is ``True``, then it is assumed that ``labels``
+    defines a ``subtopic`` connected component. In this case, subtopics
+    are included in the expanded labels.
 
     :param labels: iterable of :class:`Label` for the connected component.
     :rtype: generator of expanded :class:`Label`s only
@@ -522,17 +542,90 @@ def expand_labels(labels):
 
     annotator = labels[0].annotator_id
 
-    data_backed_pairs = set()
+    data_backed = set()
     connected_component = set()
     for label in labels:
-        data_backed_pairs.add(
-            normalize_pair(label.content_id1, label.content_id2))
-        connected_component.add(label.content_id1)
-        connected_component.add(label.content_id2)
+        ident1, ident2 = idents_from_label(label, subtopic=subtopic)
+        data_backed.add(normalize_pair(ident1, ident2))
+        connected_component.add(ident1)
+        connected_component.add(ident2)
 
     # We do not want to rebuild the Labels we already have,
     # because they have true annotator_id and subtopic
     # fields that we may want to preserve.
-    for cid1, cid2 in combinations(connected_component, 2):
-        if normalize_pair(cid1, cid2) not in data_backed_pairs:
-            yield Label(cid1, cid2, annotator, CorefValue.Positive)
+    for ident1, ident2 in combinations(connected_component, 2):
+        if normalize_pair(ident1, ident2) not in data_backed:
+            (cid1, subid1), (cid2, subid2) = ident1, ident2
+            yield Label(cid1, cid2, annotator, CorefValue.Positive,
+                        subtopic_id1=subid1, subtopic_id2=subid2)
+
+
+def expand_labels_with_subtopics(labels):
+    '''Expand a connected component of labels with subtopics.
+
+    This is just like ``expand_labels``, except it assumes that the
+    connected component given is a *subtopic* connected component.
+    '''
+    labels = list(labels)
+    assert all(lab.value == CorefValue.Positive for lab in labels)
+
+    # Anything to expand?
+    if len(labels) == 0:
+        return
+
+    annotator = labels[0].annotator_id
+
+    data_backed = set()
+    connected_component = set()
+    for label in labels:
+        ident1, ident2 = idents_from_label(label, tuple)
+        data_backed.add(normalize_pair(ident1, ident2))
+        connected_component.add(ident1)
+        connected_component.add(ident2)
+
+    # We do not want to rebuild the Labels we already have,
+    # because they have true annotator_id and subtopic
+    # fields that we may want to preserve.
+    for ident1, ident2 in combinations(connected_component, 2):
+        if normalize_pair(ident1, ident2) not in data_backed:
+            (cid1, subid1), (cid2, subid2) = ident1, ident2
+            yield Label(cid1, cid2, annotator, CorefValue.Positive,
+                        subtopic_id1=subid1, subtopic_id2=subid2)
+
+
+def normalize_ident(ident):
+    '''Splits a generic identifier.
+
+    If ``ident`` is a tuple, then ``(ident[0], ident[1])`` is returned.
+    Otherwise, ``(ident[0], None)`` is returned.
+    '''
+    if isinstance(ident, tuple) and len(ident) == 2:
+        return ident[0], ident[1]  # content_id, subtopic_id
+    else:
+        return ident, None
+
+
+def ident_has_subtopic(ident):
+    return ident[1] is not None
+
+
+def idents_from_label(lab, subtopic=False):
+    '''Returns the "ident" of a label.
+
+    If ``subtopic`` is ``True``, then a pair of pairs is returned,
+    where each pair corresponds to the content id and subtopic id in
+    the given label.
+
+    Otherwise, a pair of pairs is returned, but the second element of each
+    pair is always ``None``.
+
+    This is a helper function that is useful for dealing with generic
+    label identifiers.
+    '''
+    if not subtopic:
+        return (lab.content_id1, None), (lab.content_id2, None)
+    else:
+        return (
+            (lab.content_id1, lab.subtopic_id1),
+            (lab.content_id2, lab.subtopic_id2),
+        )

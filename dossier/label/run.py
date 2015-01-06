@@ -19,7 +19,7 @@ import sys
 import kvlayer
 import yakonfig
 
-from dossier.label import Label, LabelStore
+from dossier.label import CorefValue, Label, LabelStore
 
 
 def label_to_dict(lab):
@@ -31,7 +31,7 @@ def dict_to_label(d):
         if isinstance(v, unicode):
             return v.encode('utf-8')
         return v
-    
+
     def to_long(v):
         if isinstance(v, int):
             return long(v)
@@ -91,7 +91,7 @@ class App(yakonfig.cmd.ArgParseCmd):
                        help='Only show labels with this coreferent value.')
 
     def do_get(self, args):
-        for label in self.label_store.get_all_for_content_id(args.content_id):
+        for label in self.label_store.directly_connected(args.content_id):
             if args.value is None or label.value == args.value:
                 print(label)
 
