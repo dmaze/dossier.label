@@ -448,23 +448,16 @@ class LabelStore(object):
         '''
         assert label.value == CorefValue.Negative
 
-        cid1_comp = self.connected_component(label.content_id1)
-        cid2_comp = self.connected_component(label.content_id2)
-
-        def get_non_query_cid(cid, label):
-            if label.content_id1 == cid:
-                return label.content_id2
-            else:
-                return label.content_id1
-
         yield label
 
+        cid2_comp = self.connected_component(label.content_id2)
         for comp_label in cid2_comp:
-            cid = get_non_query_cid(label.content_id2, comp_label)
+            cid = comp_label.other(label.content_id2)
             yield Label(label.content_id1, cid, 'auto', CorefValue.Negative)
 
+        cid1_comp = self.connected_component(label.content_id1)
         for comp_label in cid1_comp:
-            cid = get_non_query_cid(label.content_id1, comp_label)
+            cid = comp_label.other(label.content_id1)
             yield Label(label.content_id2, cid, 'auto', CorefValue.Negative)
 
     def everything(self, include_deleted=False):
