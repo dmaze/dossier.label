@@ -10,6 +10,7 @@ from datetime import datetime
 import functools
 from itertools import groupby, imap, combinations, ifilter
 import logging
+import struct
 import sys
 import time
 
@@ -58,7 +59,7 @@ class CorefValue(enum.Enum):
 @functools.total_ordering
 class Label(namedtuple('_Label', 'content_id1 content_id2 subtopic_id1 ' +
                                  'subtopic_id2 annotator_id epoch_ticks '+
-                                 'value')):
+                                 'value relevance')):
     '''A label is an immutable unit of ground truth data.
 
     .. automethod:: __new__
@@ -71,7 +72,8 @@ class Label(namedtuple('_Label', 'content_id1 content_id2 subtopic_id1 ' +
     '''
 
     def __new__(cls, content_id1, content_id2, annotator_id, value,
-                subtopic_id1=None, subtopic_id2=None, epoch_ticks=None):
+                subtopic_id1=None, subtopic_id2=None, epoch_ticks=None,
+                relevance=None):
         # `__new__` is overridden instead of `__init__` because `namedtuple`
         # defines a `__new__` method. We modify construction by making
         # several values optional.
@@ -83,10 +85,18 @@ class Label(namedtuple('_Label', 'content_id1 content_id2 subtopic_id1 ' +
             subtopic_id1 = ''
         if subtopic_id2 is None:
             subtopic_id2 = ''
+
+        if value == CorefValue.Positive:
+            if relevance is None:
+                relevance = 1
+        else:
+            relevance = 0
+
         return super(Label, cls).__new__(
             cls, content_id1=content_id1, content_id2=content_id2,
             subtopic_id1=subtopic_id1, subtopic_id2=subtopic_id2,
-            annotator_id=annotator_id, epoch_ticks=epoch_ticks, value=value)
+            annotator_id=annotator_id, epoch_ticks=epoch_ticks, value=value,
+            relevance=relevance)
 
     def reversed(self):
         '''Returns a new label with ids swapped.
@@ -155,9 +165,10 @@ class Label(namedtuple('_Label', 'content_id1 content_id2 subtopic_id1 ' +
 
         :rtype: ``(key, value)``
         '''
-        epoch_ticks_rev = time_complement(self.epoch_ticks)
-        negated = self._replace(epoch_ticks=epoch_ticks_rev)[0:len(self)-1]
-        return (negated, str(self.value.value))
+        epoch_ticks_rev = long(time_complement(self.epoch_ticks))
+        negated = self._replace(epoch_ticks=epoch_ticks_rev)[0:len(self)-2]
+        packed_val = self._pack_value()
+        return (negated, packed_val)
 
     @staticmethod
     def _from_kvlayer(row):
@@ -173,11 +184,35 @@ class Label(namedtuple('_Label', 'content_id1 content_id2 subtopic_id1 ' +
         '''
         key, value = row
         cid1, cid2, subid1, subid2, ann, ticks = key
+        coref_val, relevance = Label._unpack_value(value)
         return Label(content_id1=cid1, content_id2=cid2,
                      subtopic_id1=subid1, subtopic_id2=subid2,
                      annotator_id=ann,
                      epoch_ticks=time_complement(int(ticks)),
-                     value=int(value))
+                     value=coref_val, relevance=relevance)
+
+    @staticmethod
+    def _unpack_value(val):
+        '''Unpack byte into CorefValue and relevance score.
+
+        Subtracting 1 from the lower 4 bits gives us the coref score.
+        The upper 4 bits gives us the relevance score.
+        '''
+        (unpacked,) = struct.unpack('B', val)
+        coref_val = (unpacked & 15) - 1
+        relevance = (unpacked >> 4)
+        return coref_val, relevance
+
+    def _pack_value(self):
+        '''Pack CorefValue and relevance score into a byte.
+
+        We add one to the coref value to make it unsigned.
+        This unsiged value makes the lower 4 bits of the byte.
+        The relevance score makes up the upper 4 bits.
+        '''
+        to_pack = (self.value.value+1) | (self.relevance << 4)
+        packed = struct.pack('B', to_pack)
+        return packed
 
     def __lt__(l1, l2):
         '''Defines a total ordering for labels.
